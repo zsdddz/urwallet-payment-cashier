@@ -1,0 +1,28 @@
+{
+  "name": "urwallet-payment-cashier",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "lottie-web": "^5.13.0",
+    "pinia": "^2.1.7",
+    "qrcode": "^1.5.4",
+    "vant": "^4.9.0",
+    "vue": "^3.4.29",
+    "vue-i18n": "^11.4.2",
+    "vue-router": "^4.3.3"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.3.1",
+    "vue-tsc": "^2.0.21"
+  }
+}
