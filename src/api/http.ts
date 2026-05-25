@@ -3,9 +3,14 @@ import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types/schema'
 
 let tenantId = ''
+let orderId = ''
 
 export function setTenantId(id: string) {
   tenantId = id
+}
+
+export function setOrderId(id: string) {
+  orderId = id
 }
 
 const http = axios.create({
@@ -20,6 +25,9 @@ http.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (tenantId) {
       config.headers['X-Tenant-Id'] = tenantId
+    }
+    if (orderId) {
+      config.headers['X-Order-Id'] = orderId
     }
     return config
   },

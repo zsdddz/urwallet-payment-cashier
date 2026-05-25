@@ -40,8 +40,6 @@ export default {
     orderNotFound: 'الطلب غير موجود',
     orderNotFoundDesc: 'لم يتم تقديم رقم الطلب. يرجى استخدام الرابط المرسل إليك.',
     invalidOrder: 'رابط الطلب غير صالح',
-    invalidOrderDesc: 'رابط الطلب غير صالح أو تالف. يرجى استخدام الرابط الصحيح.',
-    invalidOrder: 'رابط الطلب غير صالح',
     invalidOrderDesc: 'رابط الطلب غير صالح أو تالف. يرجى استخدام الرابط الصحيح.'
   }
 }

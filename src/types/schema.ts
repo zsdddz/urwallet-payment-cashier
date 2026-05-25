@@ -45,6 +45,7 @@ export interface ElementSchema {
   is_dynamic?: boolean
   options?: OptionItem[]
   value?: string
+  source?: string
 }
 
 export interface InterceptorSchema {
@@ -93,12 +94,13 @@ export interface UploadResponse {
 }
 
 export interface SchemaResponse {
-  order_info?: {
-    order_no?: string
-    amount?: string
+  orderInfo?: {
+    orderId?: string
+    orderAmount?: number
     currency?: string
-    expire_time?: number
+    expireTime?: number
+    collectionAccount?: string
   }
-  ui_config: UiConfig
-  checkout_schema: StepSchema[]
+  uiConfig: UiConfig
+  checkoutSchema: StepSchema[]
 }

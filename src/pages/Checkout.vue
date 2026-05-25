@@ -119,7 +119,7 @@ import InterceptorDrawer from '@/components/common/InterceptorDrawer.vue'
 import LottiePlayer from '@/components/common/LottiePlayer.vue'
 import { useCheckoutStore } from '@/stores/checkout'
 import { i18n } from '@/i18n'
-import { getCheckoutInfo, submitCheckout, setTenantId } from '@/api'
+import { getCheckoutInfo, submitCheckout, setTenantId, setOrderId } from '@/api'
 import loadingAnimData from '@/assets/animations/loading.json'
 
 const store = useCheckoutStore()
@@ -133,6 +133,27 @@ const orderNotFound = ref(false)
 const invalidOrder = ref(false)
 
 let resolvedOrderId = ''
+
+function resolvePath(obj: unknown, path: string): string {
+  return path.split('.').reduce<unknown>((cur, key) => {
+    if (cur != null && typeof cur === 'object') {
+      return (cur as Record<string, unknown>)[key]
+    }
+    return undefined
+  }, obj) as string ?? ''
+}
+
+function resolveSourceValues(schema: import('@/types/schema').StepSchema[] | undefined, data: unknown) {
+  if (!schema) return
+  for (const step of schema) {
+    for (const el of step.elements) {
+      if (el.source && !el.value) {
+        const resolved = resolvePath(data, el.source)
+        if (resolved) el.value = String(resolved)
+      }
+    }
+  }
+}
 
 function decodeToken(token: string): { tenantId: string; orderId: string } | null {
   try {
@@ -163,6 +184,7 @@ onMounted(() => {
     return
   }
   setTenantId(parsed.tenantId)
+  setOrderId(parsed.orderId)
   resolvedOrderId = parsed.orderId
   loadSchema()
 })
@@ -188,6 +210,8 @@ async function loadSchema() {
         expire_time: data.orderInfo.expireTime
       })
     }
+
+    resolveSourceValues(data.checkoutSchema, data)
 
     const firstStep = data.checkoutSchema?.[0]
     if (firstStep) {

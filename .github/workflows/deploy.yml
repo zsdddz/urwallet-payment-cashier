@@ -1,0 +1,167 @@
+
+name: 部署 urwallet-payment-cashier
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署环境'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+env:
+  SERVICE_NAME: urwallet-payment-cashier
+  DEPLOY_PATH: /opt/middleware/nginx/html/cashier
+
+jobs:
+  # ==========================================
+  # 阶段一：构建前端产物
+  # ==========================================
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+    steps:
+      - name: 1. 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 2. 确定版本号
+        id: set_version
+        run: |
+          VERSION="${{ github.sha }}"
+          SHORT_SHA="${VERSION:0:7}"
+          echo "version=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "构建版本: $SHORT_SHA"
+
+      - name: 3. 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 4. 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: pnpm
+
+      - name: 5. 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 6. 构建生产包
+        run: pnpm build
+        env:
+          NODE_OPTIONS: --max_old_space_size=4096
+
+      - name: 7. 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ steps.set_version.outputs.version }}
+          path: dist/
+          retention-days: 1
+
+  # ==========================================
+  # 阶段二：部署到 EC2
+  # ==========================================
+  deploy-to-ec2:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ needs.build.outputs.version }}
+          path: dist/
+
+      - name: 2. 上传文件到服务器临时目录
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: dist/*
+          target: /tmp/${{ env.SERVICE_NAME }}-${{ needs.build.outputs.version }}
+          strip_components: 1
+
+      - name: 3. 切换部署（清空旧版本，替换新版本）
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ env.DEPLOY_PATH }}"
+            TMP_PATH="/tmp/${{ env.SERVICE_NAME }}-${{ needs.build.outputs.version }}"
+            BACKUP_PATH="/tmp/${{ env.SERVICE_NAME }}-backup-$(date +%Y%m%d%H%M%S)"
+
+            echo "=== 当前部署路径: $DEPLOY_PATH ==="
+
+            # 备份当前版本（若存在）
+            if [ -d "$DEPLOY_PATH" ] && [ "$(ls -A $DEPLOY_PATH)" ]; then
+              echo "备份当前版本到 $BACKUP_PATH ..."
+              cp -r "$DEPLOY_PATH" "$BACKUP_PATH"
+            fi
+
+            # 确保目标目录存在
+            mkdir -p "$DEPLOY_PATH"
+
+            # 清空旧文件并替换新文件
+            echo "清空旧文件..."
+            rm -rf "$DEPLOY_PATH"/*
+
+            echo "复制新文件..."
+            cp -r "$TMP_PATH"/. "$DEPLOY_PATH"/
+
+            # 清理临时目录
+            rm -rf "$TMP_PATH"
+
+            # 验证部署结果
+            FILE_COUNT=$(find "$DEPLOY_PATH" -type f | wc -l)
+            echo "部署完成，共 $FILE_COUNT 个文件"
+
+            if [ "$FILE_COUNT" -eq 0 ]; then
+              echo "::error::部署目录为空，部署失败！"
+              exit 1
+            fi
+
+            # 确认 index.html 存在
+            if [ ! -f "$DEPLOY_PATH/index.html" ]; then
+              echo "::error::index.html 不存在，构建产物异常！"
+              exit 1
+            fi
+
+            echo "=== 部署验证通过 ==="
+
+  # ==========================================
+  # 阶段三：Telegram 通知
+  # ==========================================
+  notify:
+    needs: [build, deploy-to-ec2]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 成功通知
+        if: ${{ needs.build.result == 'success' && needs.deploy-to-ec2.result == 'success' }}
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendMessage \
+            -H 'Content-Type: application/json' \
+            -d "{\"chat_id\":\"${{ secrets.TG_CHAT_ID }}\",\"text\":\"✅ <b>urwallet-payment-cashier 部署成功</b>\\n\\n<b>环境:</b> EC2 (Nginx)\\n<b>路径:</b> <code>${{ env.DEPLOY_PATH }}</code>\\n<b>版本:</b> <code>${{ needs.build.outputs.version }}</code>\\n<b>操作人:</b> ${{ github.actor }}\",\"parse_mode\":\"HTML\"}"
+
+      - name: 失败通知
+        if: ${{ needs.build.result == 'failure' || needs.deploy-to-ec2.result == 'failure' }}
+        run: |
+          FAILED_STAGE=""
+          if [ "${{ needs.build.result }}" == "failure" ]; then
+            FAILED_STAGE="构建阶段"
+          else
+            FAILED_STAGE="部署阶段"
+          fi
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendMessage \
+            -H 'Content-Type: application/json' \
+            -d "{\"chat_id\":\"${{ secrets.TG_CHAT_ID }}\",\"text\":\"❌ <b>urwallet-payment-cashier 部署失败</b>\\n\\n<b>失败阶段:</b> $FAILED_STAGE\\n<b>版本:</b> <code>${{ needs.build.outputs.version }}</code>\\n<b>操作人:</b> ${{ github.actor }}\\n\\n请查看 Actions 日志排查原因。\",\"parse_mode\":\"HTML\"}"

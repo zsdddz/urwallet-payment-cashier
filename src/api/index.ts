@@ -1,5 +1,5 @@
 import http from './http'
-export { setTenantId } from './http'
+export { setTenantId, setOrderId } from './http'
 import type {
   ApiResponse,
   SchemaResponse,
@@ -14,7 +14,7 @@ export function getCheckoutInfo(orderNo: string, params?: Record<string, string>
 
 export function submitCheckout(payload: SubmitPayload) {
   return http.post<ApiResponse<{ next_step?: StepSchema; done?: boolean; redirect_url?: string }>>(
-    '/checkout/submit',
+    '/order/v1/checkout/submit',
     payload
   )
 }
