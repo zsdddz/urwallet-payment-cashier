@@ -175,21 +175,21 @@ async function loadSchema() {
     const res = await getCheckoutInfo(resolvedOrderId, params)
     const data = res.data.data
 
-    if (data.ui_config) {
-      store.setUiConfig(data.ui_config)
-      i18n.global.locale.value = data.ui_config.language as 'en' | 'ar' | 'hi'
+    if (data.uiConfig) {
+      store.setUiConfig(data.uiConfig)
+      i18n.global.locale.value = data.uiConfig.language as 'en' | 'ar' | 'hi'
     }
 
-    if (data.order_info) {
+    if (data.orderInfo) {
       store.setOrderInfo({
-        order_no: data.order_info.order_no,
-        amount: data.order_info.amount,
-        currency: data.order_info.currency,
-        expire_time: data.order_info.expire_time
+        order_no: data.orderInfo.orderId,
+        amount: data.orderInfo.orderAmount != null ? String(data.orderInfo.orderAmount) : undefined,
+        currency: data.orderInfo.currency,
+        expire_time: data.orderInfo.expireTime
       })
     }
 
-    const firstStep = data.checkout_schema?.[0]
+    const firstStep = data.checkoutSchema?.[0]
     if (firstStep) {
       store.setStep(firstStep)
       checkInterceptor(firstStep)
