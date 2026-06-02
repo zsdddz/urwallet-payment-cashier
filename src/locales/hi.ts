@@ -40,6 +40,17 @@ export default {
     orderNotFound: 'ऑर्डर नहीं मिला',
     orderNotFoundDesc: 'कोई ऑर्डर नंबर प्रदान नहीं किया गया। कृपया आपको भेजे गए लिंक का उपयोग करें।',
     invalidOrder: 'अमान्य ऑर्डर लिंक',
-    invalidOrderDesc: 'ऑर्डर लिंक अमान्य या दूषित है। कृपया सही लिंक का उपयोग करें।'
+    invalidOrderDesc: 'ऑर्डर लिंक अमान्य या दूषित है। कृपया सही लिंक का उपयोग करें।',
+    editInterceptor: 'संपादित करें'
+  },
+  orderStatus: {
+    processingTitle: 'आपका ऑर्डर प्रक्रिया में है',
+    processingDesc: 'कृपया एक क्षण प्रतीक्षा करें...',
+    successTitle: 'भुगतान सफल',
+    successDesc: 'आपके भुगतान की पुष्टि हो गई',
+    invalidTitle: 'ऑर्डर अमान्य',
+    invalidDesc: 'यह ऑर्डर अब मान्य नहीं है',
+    timeoutTitle: 'ऑर्डर की समय-सीमा समाप्त',
+    timeoutDesc: 'समय-सीमा समाप्त होने के कारण यह ऑर्डर बंद हो गया'
   }
 }

@@ -76,6 +76,24 @@
             <span>{{ $t('checkout.securePayment') }}</span>
           </div>
 
+          <!-- 拦截器已填数据编辑条 -->
+          <transition name="fade">
+            <div
+              v-if="store.currentStep.interceptor && Object.keys(interceptorConfirmedData).length"
+              class="interceptor-edit-bar"
+              @click="showInterceptor = true"
+            >
+              <div class="interceptor-edit-info">
+                <span class="interceptor-edit-label">{{ store.currentStep.interceptor.title }}</span>
+                <span class="interceptor-edit-value">{{ Object.values(interceptorConfirmedData)[0] }}</span>
+              </div>
+              <div class="interceptor-edit-action">
+                <span class="interceptor-edit-text">{{ $t('checkout.editInterceptor') }}</span>
+                <van-icon name="edit" size="14px" />
+              </div>
+            </div>
+          </transition>
+
           <div class="page-body" :class="{ blurred: showInterceptor }">
             <transition name="slide-up" mode="out-in">
               <DynamicStep
@@ -99,6 +117,7 @@
             :show="showInterceptor"
             :interceptor="store.currentStep.interceptor"
             :step="store.currentStep.step"
+            :initial-values="interceptorConfirmedData"
             @confirmed="onInterceptorConfirmed"
           />
         </template>
@@ -106,12 +125,21 @@
       </div>
     </transition>
 
+    <!-- 处理中蒙版：status=1 时展示，覆盖在整个页面之上 -->
+    <van-overlay :show="showProcessingOverlay" z-index="100" class="processing-overlay-wrap">
+      <div class="processing-overlay">
+        <LottiePlayer :animation-data="loadingAnimData" size="80px" />
+        <p class="processing-title">{{ $t('orderStatus.processingTitle') }}</p>
+        <p class="processing-desc">{{ $t('orderStatus.processingDesc') }}</p>
+      </div>
+    </van-overlay>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import DynamicStep from '@/components/common/DynamicStep.vue'
 import CountdownTimer from '@/components/common/CountdownTimer.vue'
@@ -119,11 +147,13 @@ import InterceptorDrawer from '@/components/common/InterceptorDrawer.vue'
 import LottiePlayer from '@/components/common/LottiePlayer.vue'
 import { useCheckoutStore } from '@/stores/checkout'
 import { i18n } from '@/i18n'
-import { getCheckoutInfo, submitCheckout, setTenantId, setOrderId } from '@/api'
+import { getCheckoutInfo, submitCheckout, setTenantId, setOrderId, getOrderStatus } from '@/api'
+import { ApiError } from '@/api/http'
 import loadingAnimData from '@/assets/animations/loading.json'
 
 const store = useCheckoutStore()
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 
 const initializing = ref(true)
@@ -131,8 +161,11 @@ const initError = ref('')
 const showInterceptor = ref(false)
 const orderNotFound = ref(false)
 const invalidOrder = ref(false)
+const showProcessingOverlay = ref(false)
+const interceptorConfirmedData = ref<Record<string, string>>({})
 
 let resolvedOrderId = ''
+let pollingTimer: ReturnType<typeof setInterval> | null = null
 
 function resolvePath(obj: unknown, path: string): string {
   return path.split('.').reduce<unknown>((cur, key) => {
@@ -152,6 +185,14 @@ function resolveSourceValues(schema: import('@/types/schema').StepSchema[] | und
         if (resolved) el.value = String(resolved)
       }
     }
+    if (step.interceptor) {
+      for (const el of step.interceptor.elements) {
+        if (el.source && !el.value) {
+          const resolved = resolvePath(data, el.source)
+          if (resolved) el.value = String(resolved)
+        }
+      }
+    }
   }
 }
 
@@ -168,6 +209,10 @@ function decodeToken(token: string): { tenantId: string; orderId: string } | nul
     return null
   }
 }
+
+onUnmounted(() => {
+  stopPolling()
+})
 
 onMounted(() => {
   store.reset()
@@ -199,7 +244,7 @@ async function loadSchema() {
 
     if (data.uiConfig) {
       store.setUiConfig(data.uiConfig)
-      i18n.global.locale.value = data.uiConfig.language as 'en' | 'ar' | 'hi'
+      i18n.global.locale.value = data.uiConfig.language as 'en' | 'ar' | 'hi' | 'zh'
     }
 
     if (data.orderInfo) {
@@ -220,8 +265,58 @@ async function loadSchema() {
     }
 
     initializing.value = false
+    startPolling()
   } catch (err: unknown) {
+    if (err instanceof ApiError) {
+      if (err.code === 'ORD005') {
+        initializing.value = false
+        router.push({ name: 'OrderSuccess', params: { orderNo: route.params.orderNo } })
+        return
+      }
+      if (err.code === 'ORD004') {
+        initializing.value = false
+        router.push({ name: 'OrderTimeout', params: { orderNo: route.params.orderNo } })
+        return
+      }
+      if (err.code === 'ORD003') {
+        initializing.value = false
+        router.push({ name: 'OrderInvalid', params: { orderNo: route.params.orderNo } })
+        return
+      }
+    }
     initError.value = err instanceof Error ? err.message : t('checkout.loadFailed')
+  }
+}
+
+function startPolling() {
+  if (pollingTimer) return
+  pollingTimer = setInterval(async () => {
+    if (!resolvedOrderId) return
+    try {
+      const res = await getOrderStatus(resolvedOrderId)
+      const status = res.data.data?.status
+      if (status === 1) {
+        showProcessingOverlay.value = true
+      } else if (status === 2) {
+        stopPolling()
+        router.push({ name: 'OrderSuccess', params: { orderNo: route.params.orderNo } })
+      } else if (status === 3) {
+        stopPolling()
+        router.push({ name: 'OrderInvalid', params: { orderNo: route.params.orderNo } })
+      } else if (status === 4) {
+        stopPolling()
+        router.push({ name: 'OrderTimeout', params: { orderNo: route.params.orderNo } })
+      }
+    } catch {
+      // 轮询请求失败时静默处理，不影响主流程
+    }
+  }, 2000)
+}
+
+function stopPolling() {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
   }
 }
 
@@ -231,14 +326,21 @@ function retryInit() {
 
 function checkInterceptor(step: typeof store.currentStep) {
   if (!step?.interceptor) return
-  const cached = localStorage.getItem(step.interceptor.cache_key)
-  if (!cached) {
+  const needsInput = step.interceptor.elements.some((el) => el.required && !el.value)
+  if (needsInput) {
     showInterceptor.value = true
+  } else {
+    const prefilledData: Record<string, string> = {}
+    step.interceptor.elements.forEach((el) => {
+      if (el.value) prefilledData[el.field_name] = el.value
+    })
+    interceptorConfirmedData.value = prefilledData
   }
 }
 
-function onInterceptorConfirmed() {
+function onInterceptorConfirmed(data: Record<string, string>) {
   showInterceptor.value = false
+  interceptorConfirmedData.value = data
 }
 
 async function handleSubmit(stepData: Record<string, string>) {
@@ -535,6 +637,58 @@ function handleRedirect() {
   letter-spacing: 0.3px;
 }
 
+/* ========== 拦截器编辑条 ========== */
+.interceptor-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.interceptor-edit-bar:active {
+  background: var(--gray-100);
+}
+
+.interceptor-edit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.interceptor-edit-label {
+  font-size: 11px;
+  color: var(--gray-400);
+  letter-spacing: 0.2px;
+}
+
+.interceptor-edit-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.interceptor-edit-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--brand-primary);
+}
+
+.interceptor-edit-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--brand-primary);
+}
+
 /* ========== 主表单区 ========== */
 .page-body {
   flex: 1;
@@ -582,5 +736,39 @@ function handleRedirect() {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ========== 处理中蒙版 ========== */
+.processing-overlay-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.processing-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  margin: 0 32px;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.processing-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin: 12px 0 6px;
+}
+
+.processing-desc {
+  font-size: 13px;
+  color: var(--gray-400);
+  margin: 0;
+  line-height: 1.5;
 }
 </style>

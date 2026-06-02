@@ -40,6 +40,17 @@ export default {
     orderNotFound: 'الطلب غير موجود',
     orderNotFoundDesc: 'لم يتم تقديم رقم الطلب. يرجى استخدام الرابط المرسل إليك.',
     invalidOrder: 'رابط الطلب غير صالح',
-    invalidOrderDesc: 'رابط الطلب غير صالح أو تالف. يرجى استخدام الرابط الصحيح.'
+    invalidOrderDesc: 'رابط الطلب غير صالح أو تالف. يرجى استخدام الرابط الصحيح.',
+    editInterceptor: 'تعديل'
+  },
+  orderStatus: {
+    processingTitle: 'طلبك قيد المعالجة',
+    processingDesc: 'يرجى الانتظار لحظة...',
+    successTitle: 'تم الدفع بنجاح',
+    successDesc: 'تم تأكيد دفعتك',
+    invalidTitle: 'الطلب غير صالح',
+    invalidDesc: 'هذا الطلب لم يعد صالحاً',
+    timeoutTitle: 'انتهت مهلة الطلب',
+    timeoutDesc: 'تم إغلاق هذا الطلب بسبب انتهاء المهلة'
   }
 }

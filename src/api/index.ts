@@ -5,7 +5,8 @@ import type {
   SchemaResponse,
   StepSchema,
   SubmitPayload,
-  UploadResponse
+  UploadResponse,
+  OrderStatusResponse
 } from '@/types/schema'
 
 export function getCheckoutInfo(orderNo: string, params?: Record<string, string>) {
@@ -25,4 +26,8 @@ export function uploadImage(file: File) {
   return http.post<ApiResponse<UploadResponse>>('/order/v1/checkout/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
+}
+
+export function getOrderStatus(orderId: string) {
+  return http.get<ApiResponse<OrderStatusResponse>>(`/v1/checkout/${orderId}/status`)
 }

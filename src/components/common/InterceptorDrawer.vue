@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import { submitCheckout } from '@/api'
 import TextField from '@/components/dynamic/TextField.vue'
@@ -56,10 +56,11 @@ const props = defineProps<{
   show: boolean
   interceptor: InterceptorSchema
   step: number
+  initialValues?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
-  (e: 'confirmed'): void
+  (e: 'confirmed', data: Record<string, string>): void
 }>()
 
 const componentMap: Partial<Record<UiType, Component>> = {
@@ -73,6 +74,21 @@ const formData = reactive<Record<string, string>>({})
 const fieldRefs = ref<Record<string, FieldInstance>>({})
 const submitting = ref(false)
 const error = ref('')
+
+watch(
+  () => props.show,
+  (visible) => {
+    if (visible) {
+      // 弹窗打开时用 initialValues 回填数据
+      props.interceptor.elements.forEach((el) => {
+        const preVal = props.initialValues?.[el.field_name] ?? el.value ?? ''
+        formData[el.field_name] = preVal
+      })
+      error.value = ''
+    }
+  },
+  { immediate: true }
+)
 
 function setFieldRef(fieldName: string, instance: FieldInstance | null) {
   if (instance) fieldRefs.value[fieldName] = instance
@@ -95,12 +111,7 @@ async function handleConfirm() {
       step_data: { ...formData }
     })
 
-    const cacheKey = props.interceptor.cache_key
-    const firstInputEl = props.interceptor.elements[0]
-    const cacheValue = firstInputEl ? (formData[firstInputEl.field_name] || '1') : '1'
-    localStorage.setItem(cacheKey, cacheValue)
-
-    emit('confirmed')
+    emit('confirmed', { ...formData })
   } catch (err: unknown) {
     error.value = err instanceof Error ? err.message : 'Submission failed'
   } finally {

@@ -104,3 +104,9 @@ export interface SchemaResponse {
   uiConfig: UiConfig
   checkoutSchema: StepSchema[]
 }
+
+export type OrderStatus = 0 | 1 | 2 | 3 | 4
+
+export interface OrderStatusResponse {
+  status: OrderStatus
+}

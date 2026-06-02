@@ -34,17 +34,28 @@ http.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
+export class ApiError extends Error {
+  code: string
+  constructor(msg: string, code: string) {
+    super(msg)
+    this.name = 'ApiError'
+    this.code = code
+  }
+}
+
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const res = response.data
     if (!res.success) {
-      return Promise.reject(new Error(res.msg || '请求失败'))
+      return Promise.reject(new ApiError(res.msg || '请求失败', res.code))
     }
     return response
   },
   (error) => {
-    const msg = error.response?.data?.msg || error.message || '网络错误，请稍后重试'
-    return Promise.reject(new Error(msg))
+    const data = error.response?.data
+    const msg = data?.msg || error.message || '网络错误，请稍后重试'
+    const code = data?.code || ''
+    return Promise.reject(new ApiError(msg, code))
   }
 )
 

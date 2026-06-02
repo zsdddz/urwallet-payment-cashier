@@ -13,6 +13,24 @@ const routes: RouteRecordRaw[] = [
     name: 'Checkout',
     component: () => import('@/pages/Checkout.vue'),
     meta: { title: 'Payment' }
+  },
+  {
+    path: '/:orderNo/success',
+    name: 'OrderSuccess',
+    component: () => import('@/pages/OrderSuccess.vue'),
+    meta: { title: 'Payment Successful' }
+  },
+  {
+    path: '/:orderNo/invalid',
+    name: 'OrderInvalid',
+    component: () => import('@/pages/OrderInvalid.vue'),
+    meta: { title: 'Order Invalid' }
+  },
+  {
+    path: '/:orderNo/timeout',
+    name: 'OrderTimeout',
+    component: () => import('@/pages/OrderTimeout.vue'),
+    meta: { title: 'Order Timed Out' }
   }
 ]
 

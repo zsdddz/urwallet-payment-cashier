@@ -40,6 +40,17 @@ export default {
     orderNotFound: 'Order Not Found',
     orderNotFoundDesc: 'No order number was provided. Please use the link sent to you.',
     invalidOrder: 'Invalid Order Link',
-    invalidOrderDesc: 'The order link is invalid or has been corrupted. Please use the correct link.'
+    invalidOrderDesc: 'The order link is invalid or has been corrupted. Please use the correct link.',
+    editInterceptor: 'Edit'
+  },
+  orderStatus: {
+    processingTitle: 'Your order is being processed',
+    processingDesc: 'Please wait a moment...',
+    successTitle: 'Payment Successful',
+    successDesc: 'Your payment has been confirmed',
+    invalidTitle: 'Order Invalid',
+    invalidDesc: 'This order is no longer valid',
+    timeoutTitle: 'Order Timed Out',
+    timeoutDesc: 'This order has been closed due to timeout'
   }
 }
