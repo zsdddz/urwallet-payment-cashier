@@ -29,5 +29,5 @@ export function uploadImage(file: File) {
 }
 
 export function getOrderStatus(orderId: string) {
-  return http.get<ApiResponse<OrderStatusResponse>>(`/v1/checkout/${orderId}/status`)
+  return http.get<ApiResponse<OrderStatusResponse>>(`/order/v1/checkout/${orderId}/status`)
 }
