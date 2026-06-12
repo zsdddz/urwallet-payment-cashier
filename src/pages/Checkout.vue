@@ -147,7 +147,7 @@ import InterceptorDrawer from '@/components/common/InterceptorDrawer.vue'
 import LottiePlayer from '@/components/common/LottiePlayer.vue'
 import { useCheckoutStore } from '@/stores/checkout'
 import { i18n } from '@/i18n'
-import { getCheckoutInfo, submitCheckout, setTenantId, setOrderId, getOrderStatus } from '@/api'
+import { getCheckoutInfo, submitCheckout, setTenantId, setOrderId, setCountryCode, getOrderStatus } from '@/api'
 import { ApiError } from '@/api/http'
 import loadingAnimData from '@/assets/animations/loading.json'
 
@@ -196,15 +196,16 @@ function resolveSourceValues(schema: import('@/types/schema').StepSchema[] | und
   }
 }
 
-function decodeToken(token: string): { tenantId: string; orderId: string } | null {
+function decodeToken(
+  token: string
+): { tenantId: string; countryCode: string; orderId: string } | null {
   try {
     const decoded = atob(token)
-    const atIndex = decoded.indexOf('@')
-    if (atIndex <= 0 || atIndex === decoded.length - 1) return null
-    return {
-      tenantId: decoded.slice(0, atIndex),
-      orderId: decoded.slice(atIndex + 1)
-    }
+    const parts = decoded.split('@')
+    if (parts.length !== 3) return null
+    const [tenantId, countryCode, orderId] = parts
+    if (!tenantId || !countryCode || !orderId) return null
+    return { tenantId, countryCode, orderId }
   } catch {
     return null
   }
@@ -229,6 +230,7 @@ onMounted(() => {
     return
   }
   setTenantId(parsed.tenantId)
+  setCountryCode(parsed.countryCode)
   setOrderId(parsed.orderId)
   resolvedOrderId = parsed.orderId
   loadSchema()

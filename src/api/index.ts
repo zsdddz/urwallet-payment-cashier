@@ -1,5 +1,5 @@
 import http from './http'
-export { setTenantId, setOrderId } from './http'
+export { setTenantId, setOrderId, setCountryCode } from './http'
 import type {
   ApiResponse,
   SchemaResponse,

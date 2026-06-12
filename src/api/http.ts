@@ -4,6 +4,7 @@ import type { ApiResponse } from '@/types/schema'
 
 let tenantId = ''
 let orderId = ''
+let countryCode = ''
 
 export function setTenantId(id: string) {
   tenantId = id
@@ -11,6 +12,10 @@ export function setTenantId(id: string) {
 
 export function setOrderId(id: string) {
   orderId = id
+}
+
+export function setCountryCode(code: string) {
+  countryCode = code
 }
 
 const http = axios.create({
@@ -28,6 +33,9 @@ http.interceptors.request.use(
     }
     if (orderId) {
       config.headers['X-Order-Id'] = orderId
+    }
+    if (countryCode) {
+      config.headers['X-Country-Code'] = countryCode
     }
     return config
   },
